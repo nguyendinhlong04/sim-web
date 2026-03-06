@@ -1,0 +1,259 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  password          String
+  name              String
+  role              String             @default("EDITOR")
+  posts             Post[]
+  chatConversations ChatConversation[]
+  createdAt         DateTime           @default(now())
+}
+
+model Post {
+  id           String            @id @default(cuid())
+  slug         String            @unique
+  authorId     String
+  author       User              @relation(fields: [authorId], references: [id])
+  status       String            @default("DRAFT")
+  publishedAt  DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  translations PostTranslation[]
+  category     String?
+}
+
+model PostTranslation {
+  id          String @id @default(cuid())
+  postId      String
+  post        Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  locale      String
+  title       String
+  metaTitle   String?
+  metaDesc    String?
+  content     String
+  excerpt     String?
+  featuredImg String?
+
+  @@unique([postId, locale])
+}
+
+model Visitor {
+  id             String   @id @default(cuid())
+  ip             String
+  country        String?
+  city           String?
+  isp            String?
+  deviceType     String?
+  browser        String?
+  os             String?
+  connectionType String?
+  referrer       String?
+  pageUrl        String
+  locale         String?
+  createdAt      DateTime @default(now())
+}
+
+model Page {
+  id           String            @id @default(cuid())
+  slug         String            @unique
+  translations PageTranslation[]
+}
+
+model PageTranslation {
+  id        String @id @default(cuid())
+  pageId    String
+  page      Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  locale    String
+  title     String
+  metaTitle String?
+  metaDesc  String?
+  content   String
+
+  @@unique([pageId, locale])
+}
+
+// ── SIM Products ──────────────────────────────────────────
+
+model SimProduct {
+  id           String                  @id @default(cuid())
+  slug         String                  @unique
+  group        String                  // POCKET, DATA, DATA_VOICE
+  provider     String                  // SOFTBANK, DOCOMO, RAKUTEN, AU, UQ
+  price        Float                   @default(0)
+  promoPrice   Float?
+  promoStart   DateTime?
+  promoEnd     DateTime?
+  dataCapacity String                  @default("")
+  validityDays Int                     @default(30)
+  status       String                  @default("DRAFT")
+  sortOrder    Int                     @default(0)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  translations SimProductTranslation[]
+  media        SimProductMedia[]
+  infoSections SimProductInfo[]
+}
+
+model SimProductTranslation {
+  id          String     @id @default(cuid())
+  productId   String
+  product     SimProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locale      String
+  name        String
+  subtitle    String     @default("")
+  description String     @default("") @db.Text
+  metaTitle   String?
+  metaDesc    String?
+
+  @@unique([productId, locale])
+}
+
+model SimProductMedia {
+  id        String     @id @default(cuid())
+  productId String
+  product   SimProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type      String     // IMAGE, VIDEO
+  url       String
+  sortOrder Int        @default(0)
+}
+
+model SimProductInfo {
+  id           String                    @id @default(cuid())
+  productId    String
+  product      SimProduct                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sortOrder    Int                       @default(0)
+  translations SimProductInfoTranslation[]
+}
+
+model SimProductInfoTranslation {
+  id          String         @id @default(cuid())
+  infoId      String
+  info        SimProductInfo @relation(fields: [infoId], references: [id], onDelete: Cascade)
+  locale      String
+  title       String
+  description String         @default("") @db.Text
+
+  @@unique([infoId, locale])
+}
+
+// ── Landing Page Sections ────────────────────────────────
+
+model LandingSection {
+  id           String                      @id @default(cuid())
+  sectionType  String                      // HERO, FEATURE, PLAN, STEP, FAQ, NAV
+  sectionKey   String                      @unique
+  sortOrder    Int                         @default(0)
+  imageUrl     String?
+  extraData    String?                     @db.Text // JSON
+  status       String                      @default("PUBLISHED")
+  translations LandingSectionTranslation[]
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+}
+
+model LandingSectionTranslation {
+  id          String         @id @default(cuid())
+  sectionId   String
+  section     LandingSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  locale      String
+  title       String         @default("")
+  subtitle    String?
+  description String?        @db.Text
+  buttonText  String?
+  buttonUrl   String?
+
+  @@unique([sectionId, locale])
+}
+
+// ── Live Chat ─────────────────────────────────────────────
+
+model ChatConversation {
+  id             String        @id @default(cuid())
+  visitorId      String        // UUID stored in visitor's localStorage
+  visitorName    String?
+  visitorEmail   String?
+  visitorLocale  String        @default("vi")
+  visitorCountry String?
+  visitorCity    String?
+  visitorDevice  String?       // desktop, mobile, tablet
+  visitorBrowser String?
+  visitorOs      String?
+  pageUrl        String?
+  status         String        @default("WAITING") // WAITING, ACTIVE, CLOSED
+  assignedTo     String?
+  agent          User?         @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  messages       ChatMessage[]
+  rating         Int?
+  tags           String?
+  notes          String?       @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  closedAt       DateTime?
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderType     String           // VISITOR, AGENT, SYSTEM
+  senderId       String?
+  senderName     String?
+  messageType    String           @default("TEXT") // TEXT, PRODUCT, IMAGE, FILE, SYSTEM
+  content        String           @db.Text
+  metadata       String?          @db.Text // JSON for product data, file info
+  isRead         Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+}
+
+model ChatGreeting {
+  id        String   @id @default(cuid())
+  locale    String   @unique
+  greeting  String   @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChatCannedResponse {
+  id        String   @id @default(cuid())
+  shortcut  String   // e.g. "/hello"
+  locale    String
+  title     String
+  content   String   @db.Text
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([shortcut, locale])
+}
+
+// ── Site Configuration ───────────────────────────────────
+
+model SiteConfig {
+  id             String   @id @default("default")
+  // Company info
+  companyName    String   @default("")
+  companyDesc    String   @default("")
+  companyAddress String   @default("")
+  companyPhone   String   @default("")
+  companyEmail   String   @default("")
+  // Logo
+  logoUrl        String   @default("")
+  // GCS config
+  gcsProjectId   String   @default("")
+  gcsBucketName  String   @default("")
+  gcsClientEmail String   @default("")
+  gcsPrivateKey  String   @default("") @db.Text
+  // Timestamps
+  updatedAt      DateTime @updatedAt
+}
