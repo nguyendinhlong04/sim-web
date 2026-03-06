@@ -2,6 +2,8 @@ import Link from "next/link";
 import AdminChatBadge from "@/components/admin/chat/AdminChatBadge";
 import SessionWrapper from "@/components/admin/SessionWrapper";
 
+export const dynamic = "force-dynamic";
+
 export default function AdminLayout({
   children,
 }: Readonly<{
